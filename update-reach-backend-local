@@ -1,0 +1,2 @@
+#!/bin/bash
+cp ~/local-git/fungibl-vue/src/reach/contracts/build/index.main.mjs ./index.main.mjs

@@ -1,12 +1,15 @@
 require('dotenv').config()
+import * as backend from "./index.main.mjs"
 const express = require('express');
 const reach = require('@reach-sh/stdlib');
 const app = express();
 const actualBearerToken = process.env.BEARER_TOKEN;
+const fungiblSeed = process.env.SEED;
+const stdlib = reach.loadStdlib();
 
-app.get('/do-thing', checkBearerToken, (req, res) => {
+app.get('/set-buyer', checkBearerToken, (req, res) => {
 
-    res.json({ message: 'Hello, World!' });
+    res.json({ success: 'Buyer set in contract', });
 });
 
 app.listen(3000, () => {
@@ -19,8 +22,8 @@ let SpecifyBuyerToContract = async (ctcInfoStr, buyer) => {
             console.log("setting buyer.....");
 
             const ctcInfo = JSON.parse(ctcInfoStr);
-
-            const ctc = CreatorAccount.contract(backend, ctcInfo);
+            const FungiblAccount = await stdlib.newAccountFromMnemonic(fungiblSeed);
+            const ctc = FungiblAccount.contract(backend, ctcInfo);
             const call = async (f) => {
                 let res = undefined;
                 try {
