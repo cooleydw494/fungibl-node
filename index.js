@@ -7,8 +7,18 @@ const actualBearerToken = process.env.BEARER_TOKEN;
 const fungiblSeed = process.env.SEED;
 const stdlib = reach.loadStdlib();
 
-app.get('/set-buyer', checkBearerToken, (req, res) => {
+app.get('/create-contract', checkBearerToken, async (req, res) => {
+    const contractInfo = await CreateContractForSubmission(req.nft_asset_id, req.submitter_address);
+    res.json({ success: 'Buyer set in contract', ctc_info: contractInfo, });
+});
 
+app.get('/verify-nft-submitted', checkBearerToken, async (req, res) => {
+    const nftSubmitted = await VerifyNftIsSubmitted(req.contract_info, req.nft_asset_id, req.submitter_address);
+    res.json({ success: 'Verification complete', nft_is_submitted: nftSubmitted });
+});
+
+app.get('/set-buyer', checkBearerToken, async (req, res) => {
+    const success = await SetBuyerToContract();
     res.json({ success: 'Buyer set in contract', });
 });
 
@@ -16,7 +26,26 @@ app.listen(3000, () => {
     console.log('Fungibl API server listening on port 3000');
 });
 
-let SpecifyBuyerToContract = async (ctcInfoStr, buyer) => {
+let CreateContractForSubmission = async (nftAssetId, submitterAddress) => {
+            const FungiblAccount = await stdlib.newAccountFromMnemonic(fungiblSeed);
+            const contract = FungiblAccount.contract(backend);
+            const fungiblAddress = stdlib.formatAddress(FungiblAccount);
+            submitterAddress = stdlib.formatAddress(submitterAddress);
+            const creationInfo = {
+                fungiblAddress: fungiblAddress,
+                nftAssetId: nftAssetId,
+                funToken: process.env.FUN_ASA_ID,
+                submitterAddress: submitterAddress,
+            };
+            backend.Fungibl(this.ctc, creationInfo);
+            return await contract.getInfo();
+}
+
+let VerifyNftIsSubmitted = async (contractInfo, nftAssetId, submitterAddress) => {
+
+}
+
+let SetBuyerToContract = async (ctcInfoStr, buyer) => {
     return new Promise(async (resolve) => {
         try {
             console.log("setting buyer.....");
@@ -39,8 +68,8 @@ let SpecifyBuyerToContract = async (ctcInfoStr, buyer) => {
             };
 
             try {
-                const Creator = ctc.a.Creator;
-                await call(() => Creator.setBuyer(reach.formatAddress(buyer)));
+                const Fungibl = ctc.a.Fungibl;
+                await call(() => Fungibl.setBuyer(stdlib.formatAddress(buyer)));
 
                 console.log(`buyer ${buyer} specified for contract ${ctcInfoStr}...`);
                 resolve(true);
