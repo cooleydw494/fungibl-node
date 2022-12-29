@@ -1,24 +1,30 @@
-require('dotenv').config()
-import * as backend from "./index.main.mjs"
-const express = require('express')
-const reach = require('@reach-sh/stdlib')
-const app = express()
-const actualBearerToken = process.env.BEARER_TOKEN
-const fungiblSeed = process.env.SEED
-const stdlib = reach.loadStdlib()
+import { config } from 'dotenv';
+import * as backend from './index.main.mjs';
+import express from 'express';
+import { loadStdlib } from '@reach-sh/stdlib';
+import bodyParser from "body-parser";
+const app = express();
+app.use(bodyParser.json());
+const stdlib = loadStdlib(process.env);
+config();
+const fungiblSeed = process.env.SEED;
+const actualBearerToken = process.env.BEARER_TOKEN;
 
-app.get('/create-contract', checkBearerToken, async (req, res) => {
-    const contractInfo = await CreateContractForSubmission(req.nft_asset_id, req.submitter_address)
+stdlib.setProviderByName('TestNet'); // Default AlgoNode TestNet
+
+app.post('/create-contract', checkBearerToken, async (req, res) => {
+    console.log('Submitter Address Log', req.body.submitter_address);
+    const contractInfo = await CreateContractForSubmission(req.body.nft_asset_id, req.body.submitter_address)
     res.json({ success: 'Buyer set in contract', ctc_info: contractInfo, })
 })
 
-app.get('/verify-nft-submitted', checkBearerToken, async (req, res) => {
-    const nftSubmitted = await VerifyNftIsSubmitted(req.contract_info, req.nft_asset_id, req.submitter_address)
+app.post('/verify-nft-submitted', checkBearerToken, async (req, res) => {
+    const nftSubmitted = await VerifyNftIsSubmitted(req.body.contract_info, req.body.nft_asset_id, req.body.submitter_address)
     res.json({ success: 'Verification complete', nft_is_submitted: nftSubmitted })
 })
 
-app.get('/set-puller', checkBearerToken, async (req, res) => {
-    const pullerSet = await SetPullerToContract(req.contract_info, req.seller_address)
+app.post('/set-puller', checkBearerToken, async (req, res) => {
+    const pullerSet = await SetPullerToContract(req.body.contract_info, req.body.seller_address)
     res.json({ puller_set: pullerSet, })
 })
 
@@ -27,18 +33,20 @@ app.listen(3000, () => {
 })
 
 let CreateContractForSubmission = async (nftAssetId, submitterAddress) => {
-            const FungiblAccount = await stdlib.newAccountFromMnemonic(fungiblSeed)
-            const contract = FungiblAccount.contract(backend)
-            const fungiblAddress = stdlib.formatAddress(FungiblAccount)
-            submitterAddress = stdlib.formatAddress(submitterAddress)
-            const creationInfo = {
-                fungiblAddress: fungiblAddress,
-                nftAssetId: nftAssetId,
-                funToken: process.env.FUN_ASA_ID,
-                submitterAddress: submitterAddress,
-            }
-            backend.Fungibl(this.ctc, creationInfo)
-            return await contract.getInfo()
+    const FungiblAccount = await stdlib.newAccountFromMnemonic(fungiblSeed)
+    console.log(FungiblAccount);
+    const contract = FungiblAccount.contract(backend)
+    const fungiblAddress = stdlib.formatAddress(FungiblAccount)
+    console.log(fungiblAddress);
+    submitterAddress = stdlib.formatAddress(submitterAddress)
+    const creationInfo = {
+        fungiblAddress: fungiblAddress,
+        nftAssetId: nftAssetId,
+        funToken: process.env.FUN_ASA_ID,
+        submitterAddress: submitterAddress,
+    }
+    await backend.Deployer(contract, creationInfo)
+    return await contract.getInfo()
 }
 
 let VerifyNftIsSubmitted = async (contractInfo, nftAssetId, submitterAddress) => {
