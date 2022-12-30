@@ -13,8 +13,9 @@ const actualBearerToken = process.env.BEARER_TOKEN;
 stdlib.setProviderByName('TestNet'); // Default AlgoNode TestNet
 
 app.post('/create-contract', checkBearerToken, async (req, res) => {
-    console.log('Submitter Address Log', req.body.submitter_address);
+    console.log('Submitter Address Log', req.body.submitter_address)
     const contractInfo = await CreateContractForSubmission(req.body.nft_asset_id, req.body.submitter_address)
+    console.log('Contract Info Log', contractInfo)
     res.json({ success: 'Buyer set in contract', ctc_info: contractInfo, })
 })
 
@@ -24,7 +25,9 @@ app.post('/verify-nft-submitted', checkBearerToken, async (req, res) => {
 })
 
 app.post('/set-puller', checkBearerToken, async (req, res) => {
-    const pullerSet = await SetPullerToContract(req.body.contract_info, req.body.seller_address)
+    console.log(req.body.puller_address)
+    console.log(req.body)
+    const pullerSet = await SetPullerToContract(req.body.contract_info, req.body.puller_address)
     res.json({ puller_set: pullerSet, })
 })
 
@@ -34,18 +37,17 @@ app.listen(3000, () => {
 
 let CreateContractForSubmission = async (nftAssetId, submitterAddress) => {
     const FungiblAccount = await stdlib.newAccountFromMnemonic(fungiblSeed)
-    console.log(FungiblAccount);
     const contract = FungiblAccount.contract(backend)
     const fungiblAddress = stdlib.formatAddress(FungiblAccount)
-    console.log(fungiblAddress);
     submitterAddress = stdlib.formatAddress(submitterAddress)
     const creationInfo = {
         fungiblAddress: fungiblAddress,
         nftAssetId: nftAssetId,
         funToken: process.env.FUN_ASA_ID,
         submitterAddress: submitterAddress,
+        ...stdlib.hasConsoleLogger,
     }
-    await backend.Deployer(contract, creationInfo)
+    backend.Deployer(contract, creationInfo)
     return await contract.getInfo()
 }
 
@@ -73,7 +75,7 @@ let VerifyNftIsSubmitted = async (contractInfo, nftAssetId, submitterAddress) =>
 
             try {
                 const Oracle = ctc.a.Oracle
-                await call(() => Oracle.verifyNftSubmitted(stdlib.formatAddress(submitterAddress)))
+                await call(() => Oracle.verifyNftSubmitted())
 
                 console.log(`NFT submission verified...`)
                 resolve(true)
@@ -91,11 +93,13 @@ let VerifyNftIsSubmitted = async (contractInfo, nftAssetId, submitterAddress) =>
 let SetPullerToContract = async (ctcInfoStr, puller) => {
     return new Promise(async (resolve) => {
         try {
-            console.log("setting puller.....")
+            console.log(`setting puller (${puller})`)
 
             const ctcInfo = JSON.parse(ctcInfoStr)
             const FungiblAccount = await stdlib.newAccountFromMnemonic(fungiblSeed)
             const ctc = FungiblAccount.contract(backend, ctcInfo)
+            const pullerAddress = stdlib.formatAddress(puller)
+
             const call = async (f) => {
                 let res = undefined
                 try {
@@ -112,7 +116,7 @@ let SetPullerToContract = async (ctcInfoStr, puller) => {
 
             try {
                 const Oracle = ctc.a.Oracle
-                await call(() => Oracle.setPullDetails(stdlib.formatAddress(puller), 0, 0, 1000))
+                await call(() => Oracle.setPullDetails(pullerAddress, 0, 0, 1000))
 
                 console.log(`puller ${puller} specified for contract ${ctcInfoStr}...`)
                 resolve(true)
