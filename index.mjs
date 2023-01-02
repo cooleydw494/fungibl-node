@@ -1,21 +1,21 @@
-import { config } from 'dotenv';
-import * as backend from './index.main.mjs';
-import express from 'express';
-import { loadStdlib } from '@reach-sh/stdlib';
-import bodyParser from "body-parser";
-const app = express();
-app.use(bodyParser.json());
-const stdlib = loadStdlib(process.env);
-config();
-const fungiblSeed = process.env.SEED;
-const actualBearerToken = process.env.BEARER_TOKEN;
+import { config } from 'dotenv'
+import * as backend from './index.main.mjs'
+import express from 'express'
+import { loadStdlib } from '@reach-sh/stdlib'
+import bodyParser from "body-parser"
+const app = express()
+app.use(bodyParser.json())
+const stdlib = loadStdlib(process.env)
+config()
+const fungiblSeed = process.env.SEED
+const actualBearerToken = process.env.BEARER_TOKEN
 
-stdlib.setProviderByName('TestNet'); // Default AlgoNode TestNet
+stdlib.setProviderByName('TestNet') // Default AlgoNode TestNet
 
 app.post('/create-contract', checkBearerToken, async (req, res) => {
-    console.log('Submitter Address Log', req.body.submitter_address)
+    // console.log('Submitter Address Log', req.body.submitter_address)
     const contractInfo = await CreateContractForSubmission(req.body.nft_asset_id, req.body.submitter_address)
-    console.log('Contract Info Log', contractInfo)
+    // console.log('Contract Info Log', contractInfo)
     res.json({ success: 'Buyer set in contract', ctc_info: contractInfo, })
 })
 
@@ -36,8 +36,9 @@ app.listen(3000, () => {
 })
 
 let CreateContractForSubmission = async (nftAssetId, submitterAddress) => {
+    // console.log('now')
     const FungiblAccount = await stdlib.newAccountFromMnemonic(fungiblSeed)
-    const contract = FungiblAccount.contract(backend)
+    // console.log('and now')
     const fungiblAddress = stdlib.formatAddress(FungiblAccount)
     submitterAddress = stdlib.formatAddress(submitterAddress)
     const creationInfo = {
@@ -45,90 +46,55 @@ let CreateContractForSubmission = async (nftAssetId, submitterAddress) => {
         nftAssetId: nftAssetId,
         funToken: process.env.FUN_ASA_ID,
         submitterAddress: submitterAddress,
-        ...stdlib.hasConsoleLogger,
+        // ...stdlib.hasConsoleLogger,
     }
+    // console.log('and and now')
+    const contract = await FungiblAccount.contract(backend)
+    // console.log('and and and now')
     backend.Deployer(contract, creationInfo)
+    // console.log('and and and and now')
     return await contract.getInfo()
 }
 
 let VerifyNftIsSubmitted = async (contractInfo, nftAssetId, submitterAddress) => {
-    return new Promise(async (resolve) => {
+    try {
+        console.log(`verifying NFT ${nftAssetId} is submitted by ${submitterAddress}`)
+        const ctcInfo = JSON.parse(contractInfo)
+        const FungiblAccount = await stdlib.newAccountFromMnemonic(fungiblSeed)
+        const ctc = FungiblAccount.contract(backend, ctcInfo)
         try {
-            console.log(`verifying NFT ${nftAssetId} is submitted by ${submitterAddress}`)
-
-            const ctcInfo = JSON.parse(contractInfo)
-            const FungiblAccount = await stdlib.newAccountFromMnemonic(fungiblSeed)
-            const ctc = FungiblAccount.contract(backend, ctcInfo)
-            const call = async (f) => {
-                let res = undefined
-                try {
-                    res = await f()
-                } catch (e) {
-                    res = [`err`, e]
-                    if (res !== null) {
-                        console.log("Failed to bind puller to contract..", e)
-                        resolve(false)
-                    }
-                }
-                console.log(`res`, res)
-            }
-
-            try {
-                const Oracle = ctc.a.Oracle
-                await call(() => Oracle.verifyNftSubmitted())
-
-                console.log(`NFT submission verified...`)
-                resolve(true)
-            } catch (e) {
-                console.log("Failed to verify NFT submission..", e)
-                resolve(false)
-            }
+            const Oracle = ctc.a.Oracle
+            const res = await Oracle.verifyNftSubmitted()
+            console.log(`NFT submission verified...`, res)
+            return true
         } catch (e) {
-            console.log("Failed to bind puller to contract..", e)
-            resolve(false)
+            console.log("Failed to verify NFT submission..", e)
         }
-    })
+    } catch (e) {
+        console.log("Failed to verify NFT submission..", e)
+    }
+    return false
 }
 
 let SetPullerToContract = async (ctcInfoStr, puller) => {
-    return new Promise(async (resolve) => {
+    try {
+        console.log(`setting puller (${puller})`)
+        const ctcInfo = JSON.parse(ctcInfoStr)
+        const FungiblAccount = await stdlib.newAccountFromMnemonic(fungiblSeed)
+        const contract = FungiblAccount.contract(backend, ctcInfo)
+        const pullerAddress = stdlib.formatAddress(puller)
         try {
-            console.log(`setting puller (${puller})`)
-
-            const ctcInfo = JSON.parse(ctcInfoStr)
-            const FungiblAccount = await stdlib.newAccountFromMnemonic(fungiblSeed)
-            const ctc = FungiblAccount.contract(backend, ctcInfo)
-            const pullerAddress = stdlib.formatAddress(puller)
-
-            const call = async (f) => {
-                let res = undefined
-                try {
-                    res = await f()
-                } catch (e) {
-                    res = [`err`, e]
-                    if (res !== null) {
-                        console.log("Failed to bind puller to contract..", e)
-                        resolve(false)
-                    }
-                }
-                console.log(`res`, res)
-            }
-
-            try {
-                const Oracle = ctc.a.Oracle
-                await call(() => Oracle.setPullDetails(pullerAddress, 0, 0, 1000))
-
-                console.log(`puller ${puller} specified for contract ${ctcInfoStr}...`)
-                resolve(true)
-            } catch (e) {
-                console.log("Failed to bind puller to contract..", e)
-                resolve(false)
-            }
+            const Oracle = contract.a.Oracle
+            const res = await Oracle.setPullDetails(pullerAddress, 0, 0, 1000)
+            console.log(`puller ${puller} specified for contract ${ctcInfoStr}...`, res)
+            return true
         } catch (e) {
             console.log("Failed to bind puller to contract..", e)
-            resolve(false)
         }
-    })
+    } catch (e) {
+        console.log("Failed to bind puller to contract..", e)
+    }
+    return false
 }
 
 function checkBearerToken(req, res, next) {
