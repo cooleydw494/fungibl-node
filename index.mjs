@@ -39,10 +39,8 @@ let CreateContractForSubmission = async (nftAssetId, submitterAddress) => {
     // console.log('now')
     const FungiblAccount = await stdlib.newAccountFromMnemonic(fungiblSeed)
     // console.log('and now')
-    const fungiblAddress = stdlib.formatAddress(FungiblAccount)
     submitterAddress = stdlib.formatAddress(submitterAddress)
     const creationInfo = {
-        fungiblAddress: fungiblAddress,
         nftAssetId: nftAssetId,
         funToken: process.env.FUN_ASA_ID,
         submitterAddress: submitterAddress,
